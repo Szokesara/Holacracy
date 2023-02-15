@@ -1,0 +1,593 @@
+---
+title: "linear regression holacracy"
+output:
+  html_document: default
+  pdf_document: default
+date: '2023-02-01'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Loading the dataset
+
+```{r}
+library(readxl)
+holacracy <- read_excel("C:/Users/szoke/OneDrive/Asztali gép/holacracy.xlsx")
+```
+
+Loading the packages
+
+```{r}
+library(psych)
+library(seminr)
+library(tidyverse)
+library(car)
+library(lares)
+library(semTools)
+library(stats)
+library(interactions)
+library(ggplot2)
+
+library(stargazer)
+library(lmtest)
+```
+
+
+2. standard data screening
+
+```{r}
+summary(holacracy)
+```
+
+```{r}
+describe(holacracy)
+```
+
+3. cleaning the dataset
+
+excluding missing variables
+
+```{r}
+table(is.na(holacracy))
+#exlude missing variables
+holacracynoNA<- holacracy%>%na.omit()
+#checking
+table(is.na(holacracynoNA))
+
+#renaming the dataset
+holacracy<-holacracynoNA
+table(is.na(holacracy))
+#missing variables are excluded
+```
+
+reverse coding items
+
+```{r}
+table(holacracy$CC1)
+table(holacracy$CC2)
+table(holacracy$CC4)
+
+
+#reverse code
+
+reverse_cols=c("CC1", "CC2", "CC4")
+holacracy[, reverse_cols]=6- holacracy[, reverse_cols]
+
+#checking if it was sucess
+
+table(holacracy$CC1)
+table(holacracy$CC2)
+table(holacracy$CC4)
+```
+
+
+4. creating the constructs
+
+```{r}
+attach(holacracy)
+
+holacracy$UICT<- (UICT1+UICT2+UICT3+UICT4+UICT5+UICT6+UICT7+UICT8+UICT9+UICT10+UICT11+UICT12+UICT13+UICT14+UICT15+UICT16+UICT17+UICT18+UICT19+UICT20)/20
+holacracy$IC<- (IC1+IC2+IC3)/3
+holacracy$TI<- (TI1+TI2+TI3+TI4+TI5+TI6)/6
+holacracy$CBI<- (CoCBI1+CoCBI2+CoCBI3+CoCBI4+CoCBI5+CoCBI6+CoCBI7+CoCBI8)/8
+holacracy$CC<- (CC1+CC2+CC3+CC4+CC5+CC6+CC7+CC8)/8
+holacracy$PS<- (PS1+PS2+PS3+PS4+PS5+PS6+PS7+PS8+PS9+PS10+PS11+PS12)/12
+holacracy$OO<- (OO1+OO2+OO3+OO4+OO5+OO6+OO7+OO8+OO9+OO10+OO11+OO12)/12
+holacracy$H<- (H1+H2+H3+H4+H5+H6)/6
+
+
+detach(holacracy)
+```
+
+```{r}
+describe(holacracy)
+```
+
+
+
+Outliers and distribution
+
+UICT
+outliers
+```{r}
+boxplot(holacracy$UICT)
+holacracy<- subset(holacracy, `UICT`< 4.5)
+holacracy<- subset(holacracy, `UICT`> 2.3)
+boxplot(holacracy$UICT)
+```
+
+distribution
+```{r}
+multi.hist(holacracy$UICT, main = "", dlty = c("solid", "dashed"))
+```
+
+IC
+outliers
+```{r}
+boxplot(holacracy$IC)
+holacracy<- subset(holacracy, `IC`> 1.5)
+boxplot(holacracy$IC)
+```
+distribution
+ 
+```{r}
+multi.hist(holacracy$IC, main = "", dlty = c("solid", "dashed"))
+```
+
+
+TI
+outliers
+```{r}
+boxplot(holacracy$TI)
+holacracy<- subset(holacracy, `TI`> 2.5)
+boxplot(holacracy$TI)
+```
+
+distribution
+
+```{r}
+multi.hist(holacracy$TI, main = "", dlty = c("solid", "dashed"))
+```
+
+PS
+outliers
+```{r}
+boxplot(holacracy$PS)
+
+```
+
+distribution
+
+```{r}
+multi.hist(holacracy$PS, main = "", dlty = c("solid", "dashed"))
+```
+
+OO
+outliers
+```{r}
+boxplot(holacracy$OO)
+holacracy<- subset(holacracy, `OO`> 2)
+boxplot(holacracy$OO)
+```
+
+distribution
+```{r}
+multi.hist(holacracy$OO, main = "", dlty = c("solid", "dashed"))
+```
+
+
+```
+
+
+
+
+H
+outliers
+
+```{r}
+
+#2.5 was the precious
+boxplot(holacracy$H)
+holacracy<- subset(holacracy, `H`> 3.75)
+boxplot(holacracy$H)
+```
+
+disribution
+
+```{r}
+multi.hist(holacracy$H, main = "", dlty = c("solid", "dashed"))
+```
+
+
+Testing the assumptions (Normality, linearity, independence, homoscedasticity, no mullticollinarity, no autocorrelation)
+
+Checking for multicollinarity
+
+```{r}
+#testing for multicolleanirity --> correlation matrix
+cor_matrix<- cor(holacracy[, c("UICT", "TI", "CC", "PS", "IC", "OO", "CBI")])
+
+corPlot(cor_matrix)
+```
+
+
+Checking linearity and homoscedasticity
+
+
+```{r}
+
+
+
+scatterplot(holacracy$UICT~holacracy$TI)
+#linearity of the data
+
+lm1<- lm(UICT~IC,
+         data=holacracy)
+
+
+lm2<- lm(UICT~IC*H-H, data = holacracy)
+
+
+```
+
+Testing the assumptions
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm1)
+#normality seems to be okay
+```
+
+
+```{r}
+#testing for homoscedasicity
+bptest(lm1)
+bptest(lm2)
+```
+
+homoscedasticity is not violated
+
+```{r}
+#test for autocorrelation
+
+dwtest(lm1)
+dwtest(lm2)
+
+#output is close to 2, p value is greater than 0.05 so there is no autocorrelation
+```
+
+
+H3 and H4
+
+```{r}
+scatterplot(holacracy$UICT~holacracy$OO)
+#line is close to be linear
+
+lm11<- lm(UICT~OO,
+         data=holacracy)
+
+lm12<- lm(UICT~OO*H-H, data = holacracy)
+
+
+par(mfrow=c(2,2))
+plot(lm11)
+```
+
+```{r}
+
+#testing for homoscedasicity
+bptest(lm11)
+bptest(lm12)
+
+
+```
+
+
+```{r}
+dwtest(lm11)
+dwtest(lm12)
+```
+
+
+
+
+H5 and H6
+
+```{r}
+
+scatterplot(holacracy$UICT~holacracy$PS)
+#doesn't seem linear relationship
+
+lm9<- lm(UICT~PS,
+         data=holacracy)
+
+lm10<- lm(UICT~PS*H-H, data = holacracy)
+
+
+
+```
+
+testing the assumptions
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm9)
+```
+
+```{r}
+#testing for homoscedasicity
+bptest(lm9)
+bptest(lm1)
+```
+
+```{r}
+dwtest(lm9)
+dwtest(lm10)
+```
+
+
+
+H7 and H8
+
+```{r}
+scatterplot(holacracy$UICT~holacracy$TI)
+
+
+lm3<- lm(UICT~TI,
+         data=holacracy)
+
+lm4<- lm(UICT~TI*H-H, data = holacracy)
+
+
+lm3.1<- lm(log(holacracy$UICT)~log(holacracy$TI),
+         data=holacracy)
+summary(lm3.1)
+par(mfrow=c(2,2))
+plot(lm3)
+
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm3)
+```
+
+
+```{r}
+fit <- lm( holacracy$UICT  ~ poly(holacracy$TI, 1))
+summary(fit)
+```
+
+
+
+
+
+```{r}
+bptest(lm3)
+bptest(lm4)
+```
+
+Above the cut value but just slightly (lm3)
+
+```{r}
+dwtest(lm3)
+dwtest(lm4)
+```
+
+
+
+H9 and H10 
+
+```{r}
+scatterplot(holacracy$UICT~holacracy$CC)
+
+lm7<- lm(UICT~CC,
+         data=holacracy)
+
+lm8<- lm(UICT~CC*H-H, data = holacracy)
+
+
+
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(lm8)
+```
+```{r}
+bptest(lm7)
+bptest(lm8)
+```
+
+```{r}
+dwtest(lm7)
+dwtest(lm8)
+```
+
+
+
+
+H11 and H12
+CBI
+outliers
+```{r}
+boxplot(holacracy$CBI)
+holacracy<- subset(holacracy, `CBI`> 2.5)
+boxplot(holacracy$CBI)
+```
+
+
+
+
+```{r}
+scatterplot(holacracy$UICT~holacracy$CBI)
+
+
+lm5<- lm(UICT~CBI,
+         data=holacracy)
+
+lm6<- lm(UICT~CBI*H-H, data = holacracy)
+
+
+par(mfrow=c(2,2))
+plot(lm5)
+
+```
+
+
+
+```{r}
+summary(lm1)
+summary(lm3)
+summary(lm5)
+summary(lm7)
+summary(lm9)
+summary(lm11)
+
+stargazer(lm1, lm3, lm5, lm7, lm9, lm11,  type = "text",
+          out = "lm1newnew.txt")
+```
+
+
+
+creating the model by adding easch variable one by one
+
+```{r}
+
+
+l1<- lm(UICT~IC,
+         data=holacracy)
+summary(l1) 
+
+l2<- lm(UICT~IC + OO,
+         data=holacracy)
+summary(l2)
+
+l3<-lm(UICT~IC + OO +PS,
+         data=holacracy)
+summary(l3)
+
+l4<-lm(UICT~IC+OO+PS+TI,
+         data=holacracy)
+summary(l4)         
+l5<-lm(UICT~IC+OO+PS+TI+CC,
+         data=holacracy)
+summary(l5)
+
+l6<-lm(UICT~IC+OO+PS+TI+CC+CBI,
+         data=holacracy)
+         
+summary(l6)  
+
+l7<- lm(UICT~IC+OO+PS+TI+CC+CBI+IC*H-H+OO*H-H +PS*H-H + TI*H-H + CC*H-H + CBI*H-H,
+         data=holacracy)
+l8<- lm(UICT~IC+OO+PS+TI+CC+CBI+IC*H-H+OO*H-H +PS*H-H + TI*H-H + CC*H-H + CBI*H-H+ Satisfaction+ Industry+ Size+ Age+ Gender+ Education+ Nationality,
+         data=holacracy)         
+summary(l7)         
+summary(l8)
+stargazer(l1, l2, l3, l4, l5, l6, l7, l8,  type = "text",
+          out = "lm1.txt",
+          columns = c(1:8),
+          width = 2)
+```
+
+alternative model specification
+
+```{r}
+
+holocpath<-'
+IC~H
+TI~H
+CBI~H
+CC~H
+PS~H
+OO~H
+UICT~IC
+UICT~TI
+UICT~CBI
+UICT~CC
+UICT~PS
+UICT~OO
+'
+
+holocpath1<- lavaan::sem(holocpath, data = holacracy, se = "standard", mimic = "eqs")
+summary(holocpath1, standardized=TRUE, fit.measures=TRUE, rsq=TRUE)
+library(lavaanPlot)
+lavaanPlot(model=holocpath1, coefs = TRUE, covs=FALSE, stand = TRUE,  stars = c("regress"))
+
+
+```
+
+
+
+
+confirmatory factor analysis
+
+```{r}
+library(readxl)
+holacracy <- read_excel("C:/Users/szoke/OneDrive/Asztali gép/holacracy.xlsx")
+```
+
+
+```{r}
+library(psych)
+library(tidyverse)
+library(car)
+library(lares)
+library(semTools)
+library(stats)
+library(interactions)
+library(ggplot2)
+
+
+library(stargazer)
+library(lmtest)
+library(car)
+library(tidyverse) 
+library(psych)
+library(corpcor)
+library(car)
+library(lares)
+library(lavaan)
+library(lavaanPlot)
+library(GPArotation)
+library(parameters)
+library(nFactors)
+library(readxl)
+```
+
+
+```{r}
+table(is.na(holacracy))
+#exlude missing variables
+holacracynoNA<- holacracy%>%na.omit()
+#checking
+table(is.na(holacracynoNA))
+
+#renaming the dataset
+holacracy<-holacracynoNA
+table(is.na(holacracy))
+#missing variables are excluded
+```
+
+```{r}
+CFA.01<- '
+UICT=~ UICT1+UICT2+UICT3+UICT4+UICT5+UICT6+UICT7+UICT8+UICT9+UICT10+UICT11+UICT12+UICT13+UICT14+UICT15+UICT16+UICT17+UICT18+UICT19+UICT20
+IC=~ IC1+IC2
+TI=~ TI1+TI2+TI3+TI4+TI5+TI6
+CBI=~ CoCBI1+CoCBI2+CoCBI3+CoCBI4+CoCBI5+CoCBI6+CoCBI7+CoCBI8
+CC=~ CC1+CC2+CC3+CC4+CC5+CC6+CC7+CC8
+PS=~ PS1+PS2+PS3+PS4+PS5+PS6+PS7+PS8+PS9+PS10+PS11+PS12
+OO=~ OO1+OO2+OO3+OO4+OO5+OO6+OO7+OO8+OO9+OO10+OO11+OO12
+H=~H1+H2+H3+H4+H5+H6
+'
+FIT.CFA.01<- cfa(CFA.01, data=holacracy, se="standard", mimic="EQS")
+summary(FIT.CFA.01, standardized=TRUE, fit.measures=TRUE)
+
+lavaanPlot(model=FIT.CFA.01, coefs = TRUE, covs=TRUE, stand = TRUE,  stars = c("regress", "latent"))
+```
+
+
+
